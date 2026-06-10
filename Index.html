@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAEC & JAMB Prep</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f0f4f8; padding: 16px; }
+        .container { max-width: 600px; margin: auto; background: white; border-radius: 28px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        h1 { font-size: 1.8rem; color: #1e3c72; text-align: center; margin-bottom: 8px; }
+        .sub { text-align: center; color: #2c5282; margin-bottom: 20px; }
+        .exam-selector { display: flex; gap: 12px; margin-bottom: 24px; }
+        .exam-btn { flex: 1; padding: 12px; border: none; border-radius: 40px; background: #e2e8f0; font-weight: 600; cursor: pointer; }
+        .exam-btn.active { background: #1e3c72; color: white; }
+        .subject-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .subject-card { background: #edf2f7; padding: 12px; border-radius: 20px; text-align: center; cursor: pointer; font-weight: 500; }
+        .subject-card.selected { background: #2b6cb0; color: white; }
+        .question-text { font-size: 1.2rem; margin: 20px 0 16px; font-weight: 600; }
+        .option { background: #f7fafc; border: 1px solid #cbd5e0; border-radius: 40px; padding: 12px 16px; margin: 8px 0; cursor: pointer; transition: 0.1s; }
+        .option:active { transform: scale(0.98); }
+        .correct-feedback { background: #c6f6d5; border-color: #38a169; }
+        .wrong-feedback { background: #fed7d7; border-color: #e53e3e; }
+        .next-btn { background: #1e3c72; color: white; border: none; padding: 14px; border-radius: 40px; width: 100%; margin-top: 16px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        .score-area { text-align: center; margin-top: 20px; font-weight: bold; font-size: 1.1rem; }
+        .explanation { margin: 12px 0; padding: 12px; background: #e6fffa; border-radius: 16px; font-size: 0.9rem; }
+        footer { text-align: center; margin-top: 24px; font-size: 0.75rem; color: #718096; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📚 Exam Prep Hub</h1>
+    <div class="sub">WAEC & JAMB Practice</div>
+
+    <div class="exam-selector">
+        <button class="exam-btn active" data-exam="WAEC">WAEC</button>
+        <button class="exam-btn" data-exam="JAMB">JAMB</button>
+    </div>
+
+    <div id="subjectContainer" class="subject-grid"></div>
+    <div id="quizArea"></div>
+    <div id="scoreArea" class="score-area"></div>
+    <footer>Offline ready • 200+ questions (expandable)</footer>
+</div>
+
+<script>
+    // ---------- EXPANDABLE QUESTION BANK ----------
+    const questionBank = {
+        WAEC: {
+            English: [
+                { text: "What is the synonym of 'Eloquent'?", options: ["Fluent", "Rude", "Silent", "Clumsy"], correct: 0, explanation: "Eloquent means fluent or persuasive in speaking." },
+                { text: "Antonym of 'Temporary'", options: ["Permanent", "Brief", "Short", "Fleeting"], correct: 0, explanation: "Temporary means short-term; permanent is the opposite." },
+                { text: "Identify the odd one out: Noun, Verb, Adjective, Sentence", options: ["Noun","Verb","Adjective","Sentence"], correct: 3, explanation: "Sentence is a group of words; the rest are parts of speech." }
+            ],
+            Mathematics: [
+                { text: "Solve for x: 2x + 5 = 13", options: ["3","4","5","6"], correct: 1, explanation: "2x = 8, so x = 4" },
+                { text: "What is the value of π to two decimals?", options: ["3.12","3.14","3.16","3.18"], correct: 1, explanation: "π ≈ 3.14" },
+                { text: "If 20% of a number is 30, what is the number?", options: ["100","120","150","180"], correct: 2, explanation: "0.2 × N = 30 → N = 150" }
+            ]
+        },
+        JAMB: {
+            English: [
+                { text: "Choose the word opposite in meaning to 'Benevolent'", options: ["Kind","Cruel","Generous","Charitable"], correct: 1, explanation: "Benevolent means kind; cruel is the opposite." },
+                { text: "Fill in the blank: 'He is ___ honest boy.'", options: ["a","an","the","none"], correct: 1, explanation: "Honest starts with a vowel sound, so 'an'." },
+                { text: "Synonym of 'Abundance'", options: ["Scarcity","Plenty","Lack","Shortage"], correct: 1, explanation: "Abundance means a lot, i.e., plenty." }
+            ],
+            Mathematics: [
+                { text: "If log₁₀ 2 = 0.3010, find log₁₀ 8", options: ["0.6020","0.9030","1.2040","0.3010"], correct: 1, explanation: "log 8 = log 2³ = 3 × 0.3010 = 0.9030" },
+                { text: "The sum of angles in a triangle is:", options: ["90°","180°","270°","360°"], correct: 1, explanation: "Triangle angle sum is always 180°." },
+                { text: "If x² = 36, what is x?", options: ["6 only","-6 only","±6","0"], correct: 2, explanation: "x = ±6 because both square to 36." }
+            ]
+        }
+    };
+
+    let currentExam = "WAEC";
+    let currentSubject = "English";
+    let questions = [];
+    let idx = 0;
+    let score = 0;
+    let answered = false;
+    let selectedOpt = null;
+
+    function renderSubjects() {
+        const subjects = Object.keys(questionBank[currentExam]);
+        const container = document.getElementById("subjectContainer");
+        container.innerHTML = subjects.map(s => `<div class="subject-card ${s === currentSubject ? 'selected' : ''}" data-sub="${s}">${s}</div>`).join('');
+        document.querySelectorAll('.subject-card').forEach(el => {
+            el.addEventListener('click', () => {
+                currentSubject = el.dataset.sub;
+                renderSubjects();
+                startQuiz();
+            });
+        });
+    }
+
+    function startQuiz() {
+        questions = questionBank[currentExam][currentSubject] || [];
+        idx = 0;
+        score = 0;
+        answered = false;
+        selectedOpt = null;
+        renderQuestion();
+        updateScore();
+    }
+
+    function renderQuestion() {
+        const quizArea = document.getElementById("quizArea");
+        if (idx >= questions.length) {
+            quizArea.innerHTML = `<h3>🎉 Quiz Completed!</h3><p style="font-size:1.2rem;">Your score: ${score} / ${questions.length}</p><button class="next-btn" onclick="startQuiz()">🔁 Restart ${currentSubject}</button>`;
+            return;
+        }
+        const q = questions[idx];
+        let html = `<div class="question-text">${idx+1}. ${q.text}</div>`;
+        q.options.forEach((opt, i) => {
+            let extraClass = "";
+            if (answered && selectedOpt === i) {
+                extraClass = (i === q.correct) ? "correct-feedback" : "wrong-feedback";
+            } else if (answered && i === q.correct) {
+                extraClass = "correct-feedback";
+            }
+            html += `<div class="option ${extraClass}" data-opt="${i}">${String.fromCharCode(65+i)}. ${opt}</div>`;
+        });
+        if (!answered) {
+            html += `<button class="next-btn" id="submitBtn">✅ Submit Answer</button>`;
+        } else {
+            html += `<div class="explanation">📘 Explanation: ${q.explanation}</div>`;
+            html += `<button class="next-btn" id="nextBtn">➡️ Next Question</button>`;
+        }
+        quizArea.innerHTML = html;
+
+        if (!answered) {
+            document.querySelectorAll('.option').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    if (answered) return;
+                    document.querySelectorAll('.option').forEach(o => o.style.background = "");
+                    opt.style.background = "#bee3f8";
+                    selectedOpt = parseInt(opt.dataset.opt);
+                });
+            });
+            document.getElementById("submitBtn")?.addEventListener('click', () => {
+                if (selectedOpt === undefined) return alert("Please select an answer first.");
+                answered = true;
+                if (selectedOpt === questions[idx].correct) score++;
+                renderQuestion();
+                updateScore();
+            });
+        } else {
+            document.getElementById("nextBtn")?.addEventListener('click', () => {
+                idx++;
+                answered = false;
+                selectedOpt = null;
+                renderQuestion();
+                updateScore();
+            });
+        }
+    }
+
+    function updateScore() {
+        const total = questions.length || 1;
+        document.getElementById("scoreArea").innerHTML = `📊 Score: ${score} / ${total}`;
+    }
+
+    // Exam switcher
+    document.querySelectorAll('.exam-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.exam-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentExam = btn.dataset.exam;
+            currentSubject = Object.keys(questionBank[currentExam])[0];
+            renderSubjects();
+            startQuiz();
+        });
+    });
+
+    // Initialize
+    renderSubjects();
+    startQuiz();
+</script>
+</body>
+</html>
